@@ -30,6 +30,7 @@ UPLOADS_DIR = Path(os.getenv("UPLOADS_DIR", "/app/uploads"))
 TEMP_DIR = Path(os.getenv("TEMP_DIR", "/app/temp"))
 DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "base")
 WHISPER_CLI = os.getenv("WHISPER_CLI", "/usr/local/bin/whisper-cli")
+WHISPER_THREADS = int(os.getenv("WHISPER_THREADS", "4"))  # CPU threads
 
 # Ensure directories exist
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
@@ -168,10 +169,11 @@ async def transcribe_audio(
             WHISPER_CLI,
             "-m", str(model_path),
             "-f", str(wav_path),
+            "-t", str(WHISPER_THREADS),  # CPU threads for faster processing
             "-nt",  # No timestamps in plain text output
         ]
         
-        # Add language option
+        # Add language option (improves accuracy and speed)
         if language and language != "auto":
             whisper_cmd.extend(["-l", language])
         

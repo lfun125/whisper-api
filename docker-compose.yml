@@ -45,6 +45,7 @@ services:
       - DEFAULT_MODEL=base
       - HOST=0.0.0.0
       - PORT=8000
+      - WHISPER_THREADS=4
     restart: unless-stopped
     deploy:
       resources:
