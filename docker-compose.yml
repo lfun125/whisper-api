@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  whisper-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: whisper-api
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist models to avoid re-downloading
+      - ./models:/app/models
+      # Optional: persist uploads
+      - ./uploads:/app/uploads
+    environment:
+      - DEFAULT_MODEL=base
+      - HOST=0.0.0.0
+      - PORT=8000
+      # Number of threads for whisper (adjust based on your CPU)
+      - WHISPER_THREADS=4
+    restart: unless-stopped
+    # Resource limits (adjust based on your system)
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+
+  # Optional: Alpine-based minimal version (smaller image)
+  # Use: docker-compose --profile alpine up -d
+  whisper-api-alpine:
+    build:
+      context: .
+      dockerfile: Dockerfile.alpine
+    container_name: whisper-api-alpine
+    profiles: ["alpine"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./uploads:/app/uploads
+    environment:
+      - DEFAULT_MODEL=base
+      - HOST=0.0.0.0
+      - PORT=8000
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+
+  # Optional: CUDA-enabled version for NVIDIA GPUs
+  # Use: docker-compose --profile cuda up -d
+  # whisper-api-cuda:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile.cuda
+  #   container_name: whisper-api-cuda
+  #   profiles: ["cuda"]
+  #   ports:
+  #     - "8000:8000"
+  #   volumes:
+  #     - ./models:/app/models
+  #   environment:
+  #     - DEFAULT_MODEL=base
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   restart: unless-stopped

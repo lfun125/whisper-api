@@ -1,0 +1,43 @@
+# Models (large binary files)
+models/
+*.bin
+
+# Uploads and temp files
+uploads/
+temp/
+
+# Docker export
+*.tar
+*.tar.gz
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.pytest_cache/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+*.env

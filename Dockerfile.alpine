@@ -1,0 +1,54 @@
+# Alpine-based minimal build (experimental)
+# Note: May have compatibility issues due to musl libc
+
+# Stage 1: Build whisper.cpp
+FROM alpine:3.19 AS builder
+
+RUN apk add --no-cache \
+    build-base \
+    cmake \
+    git \
+    linux-headers
+
+WORKDIR /build
+RUN git clone --depth 1 https://github.com/ggerganov/whisper.cpp.git
+
+WORKDIR /build/whisper.cpp
+RUN cmake -B build \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DBUILD_SHARED_LIBS=OFF \
+    -DWHISPER_BUILD_TESTS=OFF \
+    -DWHISPER_BUILD_EXAMPLES=ON && \
+    cmake --build build -j$(nproc) --target whisper-cli
+
+# Stage 2: Minimal runtime
+FROM python:3.11-alpine
+
+RUN apk add --no-cache \
+    ffmpeg \
+    curl \
+    libstdc++ \
+    libgcc
+
+# Copy whisper-cli binary
+COPY --from=builder /build/whisper.cpp/build/bin/whisper-cli /usr/local/bin/
+
+# Create non-root user
+RUN adduser -D -u 1000 whisper
+WORKDIR /app
+RUN mkdir -p /app/models /app/uploads /app/temp && \
+    chown -R whisper:whisper /app
+
+# Install Python dependencies
+COPY --chown=whisper:whisper requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY --chown=whisper:whisper app.py .
+
+USER whisper
+EXPOSE 8000
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+CMD ["python", "app.py"]

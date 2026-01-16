@@ -1,0 +1,34 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+*.md
+
+# Models (will be downloaded or mounted)
+models/
+*.bin
+
+# Uploads and temp files
+uploads/
+temp/
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.venv
+venv
+env
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
