@@ -1,4 +1,7 @@
 # Multi-stage build for whisper.cpp API server
+# Build args
+ARG MODEL=base
+
 # Stage 1: Build whisper.cpp
 FROM debian:bookworm-slim AS builder
 
@@ -17,8 +20,25 @@ WORKDIR /build/whisper.cpp
 RUN cmake -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_SHARED_LIBS=OFF && \
     cmake --build build -j$(nproc) --config Release
 
-# Stage 2: Runtime image with Python API
+# Stage 2: Download model
+FROM debian:bookworm-slim AS downloader
+
+ARG MODEL
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /models
+RUN echo "Downloading model: ${MODEL}" && \
+    curl -L -o ggml-${MODEL}.bin \
+    https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${MODEL}.bin && \
+    ls -lh ggml-${MODEL}.bin
+
+# Stage 3: Runtime image with Python API
 FROM python:3.11-slim-bookworm
+
+ARG MODEL
 
 # Install only essential runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -27,7 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Copy whisper-cli binary (statically linked)
+# Copy whisper-cli binary
 COPY --from=builder /build/whisper.cpp/build/bin/whisper-cli /usr/local/bin/
 
 # Create non-root user for security
@@ -36,12 +56,18 @@ WORKDIR /app
 RUN mkdir -p /app/models /app/uploads /app/temp && \
     chown -R whisper:whisper /app
 
+# Copy pre-downloaded model
+COPY --from=downloader --chown=whisper:whisper /models/ /app/models/
+
 # Install Python dependencies
 COPY --chown=whisper:whisper requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY --chown=whisper:whisper app.py .
+
+# Set default model environment variable
+ENV DEFAULT_MODEL=${MODEL}
 
 USER whisper
 

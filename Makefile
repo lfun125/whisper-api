@@ -6,26 +6,36 @@ IMAGE_NAME ?= whisper-api
 VERSION ?= latest
 PLATFORM ?= linux/amd64
 
-# Build Docker image (native platform)
+# Build Docker image with model included (native platform)
 build:
-	docker build -t $(IMAGE_NAME):$(VERSION) .
+	docker build --build-arg MODEL=$(MODEL) -t $(IMAGE_NAME):$(VERSION) .
+	@echo ""
+	@echo "Built $(IMAGE_NAME):$(VERSION) with model: $(MODEL)"
 
 # Build Alpine version (smaller)
 build-alpine:
-	docker build -f Dockerfile.alpine -t $(IMAGE_NAME):alpine .
+	docker build --build-arg MODEL=$(MODEL) -f Dockerfile.alpine -t $(IMAGE_NAME):alpine .
+	@echo ""
+	@echo "Built $(IMAGE_NAME):alpine with model: $(MODEL)"
 
 # Build for x86_64/amd64 (cross-platform from Apple Silicon)
 build-amd64:
 	docker buildx build --platform linux/amd64 \
+		--build-arg MODEL=$(MODEL) \
 		-t $(IMAGE_NAME):$(VERSION)-amd64 \
 		--load .
+	@echo ""
+	@echo "Built $(IMAGE_NAME):$(VERSION)-amd64 with model: $(MODEL)"
 
 # Build and export amd64 image to tar file
 build-amd64-export:
 	docker buildx build --platform linux/amd64 \
+		--build-arg MODEL=$(MODEL) \
 		-t $(IMAGE_NAME):$(VERSION) \
 		-o type=docker,dest=$(IMAGE_NAME)-amd64.tar .
-	gzip $(IMAGE_NAME)-amd64.tar
+	gzip -f $(IMAGE_NAME)-amd64.tar
+	@echo ""
+	@echo "Exported $(IMAGE_NAME)-amd64.tar.gz with model: $(MODEL)"
 	@ls -lh $(IMAGE_NAME)-amd64.tar.gz
 
 # Build multi-platform and push to registry
@@ -35,8 +45,11 @@ build-multi:
 		exit 1; \
 	fi
 	docker buildx build --platform linux/amd64,linux/arm64 \
+		--build-arg MODEL=$(MODEL) \
 		-t $(REGISTRY)/$(IMAGE_NAME):$(VERSION) \
 		--push .
+	@echo ""
+	@echo "Pushed $(REGISTRY)/$(IMAGE_NAME):$(VERSION) with model: $(MODEL)"
 
 # Setup buildx builder (run once)
 buildx-setup:
@@ -47,8 +60,8 @@ buildx-setup:
 build-compose:
 	docker-compose build
 
-# Start the service
-start: download-model
+# Start the service (model already in image, no need to download)
+start:
 	docker-compose up -d
 	@echo ""
 	@echo "Whisper API is starting..."
@@ -135,14 +148,16 @@ size:
 help:
 	@echo "Whisper API Makefile"
 	@echo ""
-	@echo "Build (native):"
-	@echo "  make build          - Build for current platform"
-	@echo "  make build-alpine   - Build Alpine version (smaller)"
+	@echo "Build (model included in image):"
+	@echo "  make build               - Build with base model"
+	@echo "  make build MODEL=small   - Build with small model"
+	@echo "  make build MODEL=medium  - Build with medium model"
+	@echo "  make build-alpine        - Build Alpine version (smaller)"
 	@echo ""
 	@echo "Build (cross-platform, Apple Silicon -> x86):"
-	@echo "  make buildx-setup      - Setup buildx (run once)"
-	@echo "  make build-amd64       - Build x86_64 image"
-	@echo "  make build-amd64-export - Build & export x86_64 to tar.gz"
+	@echo "  make buildx-setup        - Setup buildx (run once)"
+	@echo "  make build-amd64         - Build x86_64 image"
+	@echo "  make build-amd64-export  - Build & export x86_64 to tar.gz"
 	@echo "  make build-multi REGISTRY=xxx - Build multi-arch & push"
 	@echo ""
 	@echo "Run:"
@@ -156,11 +171,9 @@ help:
 	@echo "  make push REGISTRY=xxx - Push to registry"
 	@echo "  make size           - Show image sizes"
 	@echo ""
-	@echo "Models:"
-	@echo "  make download-model          - Download base model"
-	@echo "  make download-model MODEL=small"
+	@echo "Available models: tiny, base, small, medium, large-v3"
 	@echo ""
 	@echo "Examples:"
-	@echo "  make build-amd64 VERSION=1.0"
-	@echo "  make build-amd64-export"
-	@echo "  make build-multi REGISTRY=docker.io/myuser"
+	@echo "  make build MODEL=small"
+	@echo "  make build-amd64 MODEL=base VERSION=1.0"
+	@echo "  make build-amd64-export MODEL=small"

@@ -1,5 +1,6 @@
 # Alpine-based minimal build (experimental)
-# Note: May have compatibility issues due to musl libc
+# Build args
+ARG MODEL=base
 
 # Stage 1: Build whisper.cpp
 FROM alpine:3.19 AS builder
@@ -21,8 +22,22 @@ RUN cmake -B build \
     -DWHISPER_BUILD_EXAMPLES=ON && \
     cmake --build build -j$(nproc) --target whisper-cli
 
-# Stage 2: Minimal runtime
+# Stage 2: Download model
+FROM alpine:3.19 AS downloader
+
+ARG MODEL
+RUN apk add --no-cache curl
+
+WORKDIR /models
+RUN echo "Downloading model: ${MODEL}" && \
+    curl -L -o ggml-${MODEL}.bin \
+    https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-${MODEL}.bin && \
+    ls -lh ggml-${MODEL}.bin
+
+# Stage 3: Minimal runtime
 FROM python:3.11-alpine
+
+ARG MODEL
 
 RUN apk add --no-cache \
     ffmpeg \
@@ -39,11 +54,16 @@ WORKDIR /app
 RUN mkdir -p /app/models /app/uploads /app/temp && \
     chown -R whisper:whisper /app
 
+# Copy pre-downloaded model
+COPY --from=downloader --chown=whisper:whisper /models/ /app/models/
+
 # Install Python dependencies
 COPY --chown=whisper:whisper requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=whisper:whisper app.py .
+
+ENV DEFAULT_MODEL=${MODEL}
 
 USER whisper
 EXPOSE 8000
